@@ -6,7 +6,7 @@ const axios = require("axios");
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Define the AI prompt
+// Define the AI prompt for Claude API
 const AI_PROMPT = `
 You are an expert construction estimator. Based on the uploaded PDF blueprint or floor plan, identify key information like:
 - Ceiling height from elevation views
