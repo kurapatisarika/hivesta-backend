@@ -259,8 +259,234 @@ function enrichResult(result) {
 }
 
 app.get("/", (req, res) => {
+  app.get("/", (req, res) => {
   res.send("Hivesta backend is running");
 });
+
+function dimToFeet(dim) {
+  if (!dim || typeof dim !== "string" || dim === "--") return null;
+  const cleaned = dim.trim();
+  const match = cleaned.match(/(\d+)\s*'\s*-?\s*(\d+)?\s*"?/);
+  if (!match) return null;
+  const feet = Number(match[1] || 0);
+  const inches = Number(match[2] || 0);
+  return feet + inches / 12;
+}
+
+function calcSqftFromDims(length, width) {
+  const l = dimToFeet(length);
+  const w = dimToFeet(width);
+  if (l == null || w == null) return null;
+  return Math.round(l * w);
+}
+
+function normalizeRooms(rooms) {
+  if (!Array.isArray(rooms)) return [];
+  const seen = new Set();
+
+  return rooms
+    .map((r) => {
+      const room = { ...r };
+      const key = `${room.name || ""}|${room.length || ""}|${room.width || ""}|${room.ref || ""}`.toLowerCase();
+
+      if (!room.sqft_interior || Number(room.sqft_interior) === 0) {
+        const calc = calcSqftFromDims(room.length, room.width);
+        if (calc) {
+          room.sqft_interior = calc;
+          room.sqft_source = "calculated_from_dimensions";
+        } else {
+          room.sqft_source = room.sqft_source || "missing";
+        }
+      }
+
+      return { room, key };
+    })
+    .filter(({ key }) => {
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map(({ room }) => room);
+}
+
+function normalizeGarageDoors(garageDoors, windowsDoors) {
+  const gd = Array.isArray(garageDoors) ? [...garageDoors] : [];
+  const wd = Array.isArray(windowsDoors) ? windowsDoors : [];
+
+  const moved = wd.filter((x) => {
+    const text = `${x.item || ""} ${x.type || ""} ${x.location || ""}`.toLowerCase();
+    return text.includes("garage");
+  });
+
+  moved.forEach((m) => {
+    gd.push({
+      item: m.item || "Garage Door",
+      size: m.size || "--",
+      location: m.location || "Garage",
+      qty: Number(m.qty) || 1,
+      ref: m.ref || "--"
+    });
+  });
+
+  const filtered = wd.filter((x) => {
+    const text = `${x.item || ""} ${x.type || ""} ${x.location || ""}`.toLowerCase();
+    return !text.includes("garage");
+  });
+
+  const mergedMap = new Map();
+  gd.forEach((g) => {
+    const key = `${g.item || ""}|${g.size || ""}|${g.location || ""}|${g.ref || ""}`.toLowerCase();
+    if (!mergedMap.has(key)) {
+      mergedMap.set(key, { ...g, qty: Number(g.qty) || 1 });
+    } else {
+      const ex = mergedMap.get(key);
+      ex.qty += Number(g.qty) || 1;
+    }
+  });
+
+  return {
+    garageDoors: Array.from(mergedMap.values()),
+    windowsDoors: filtered
+  };
+}
+
+function normalizeFoundation(foundation) {
+  const f = foundation && typeof foundation === "object" ? { ...foundation } : {};
+  if (!Array.isArray(f.stages)) f.stages = [];
+
+  f.stages = f.stages.map((stage, idx) => ({
+    stage: stage.stage || `Stage ${idx + 1}`,
+    items: Array.isArray(stage.items) ? stage.items : []
+  }));
+
+  return f;
+}
+
+function enrichResult(result) {
+  const out = { ...result };
+
+  out.rooms = normalizeRooms(out.rooms);
+
+  const fixedOpenings = normalizeGarageDoors(out.garage_doors, out.windows_doors);
+  out.garage_doors = fixedOpenings.garageDoors;
+  out.windows_doors = fixedOpenings.windowsDoors;
+
+  out.foundation = normalizeFoundation(out.foundation);
+
+  return out;
+}
+
+async function callClaudeWithPdf(pdfBase64, fileName, systemPrompt, userText) {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 8000,
+      system: systemPrompt,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "document",
+              source: {
+                type: "base64",
+                media_type: "application/pdf",
+                data: pdfBase64
+              }
+            },
+            {
+              type: "text",
+              text: userText || `Analyze this residential construction plan PDF and return only the JSON object. File name: ${fileName || "uploaded-plan.pdf"}`
+            }
+          ]
+        }
+      ]
+    })
+  });
+
+  const raw = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Anthropic API error: ${raw}`);
+  }
+
+  const parsed = JSON.parse(raw);
+  const text = (parsed.content || [])
+    .filter((c) => c.type === "text")
+    .map((c) => c.text)
+    .join("")
+    .replace(/```json/g, "")
+    .replace(/```/g, "")
+    .trim();
+
+  return JSON.parse(text);
+}
+
+function mergeVerification(baseResult, verifyResult) {
+  const merged = { ...baseResult };
+
+  if (
+    verifyResult &&
+    verifyResult.ceiling_height_ft !== null &&
+    verifyResult.ceiling_height_ft !== undefined &&
+    verifyResult.ceiling_height_ft !== 0
+  ) {
+    merged.ceiling_height_ft = verifyResult.ceiling_height_ft;
+  }
+
+  if (verifyResult?.drywall?.notes) {
+    merged.drywall = merged.drywall || {};
+    merged.drywall.notes = verifyResult.drywall.notes;
+  }
+
+  if (Array.isArray(verifyResult?.garage_doors) && verifyResult.garage_doors.length > 0) {
+    merged.garage_doors = verifyResult.garage_doors;
+  }
+
+  return merged;
+}
+
+const VERIFY_PROMPT = `
+You are doing a SECOND-PASS VERIFICATION ONLY for two critical items on this residential plan.
+
+TASK 1 — GLOBAL CEILING HEIGHT
+- Find the TRUE PROJECT-WIDE ceiling height from elevations, sections, wall sections, or general notes.
+- Do NOT use room labels like "8'-8\\" CLG" as the project-wide ceiling height.
+- If the global height is shown in elevations or sections, return it.
+- Also return a drywall note mentioning the source sheet.
+
+TASK 2 — GARAGE DOORS
+- Count ALL garage door openings on the plan.
+- Do not stop when you find the first garage door.
+- Keep searching all relevant sheets until all garage door openings are found.
+- Cross-check floor plan, foundation plan, lintel/structural plan, and schedules.
+- Return every garage door separately.
+- If there are two garage door openings, return two entries.
+
+Return ONLY valid JSON:
+{
+  "ceiling_height_ft": null,
+  "drywall": {
+    "notes": "string",
+    "ref": "string"
+  },
+  "garage_doors": [
+    {
+      "item": "string",
+      "size": "string",
+      "location": "string",
+      "qty": 1,
+      "ref": "string"
+    }
+  ]
+}
+`;
 
 app.post("/api/analyze", async (req, res) => {
   try {
@@ -274,68 +500,38 @@ app.post("/api/analyze", async (req, res) => {
       return res.status(500).json({ error: "Missing ANTHROPIC_API_KEY on the server." });
     }
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01"
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 8000,
-        system: AI_PROMPT,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "document",
-                source: {
-                  type: "base64",
-                  media_type: "application/pdf",
-                  data: pdfBase64
-                }
-              },
-              {
-                type: "text",
-                text: `Analyze this residential construction plan PDF like a professional takeoff estimator and return only the JSON object. File name: ${fileName || "uploaded-plan.pdf"}`
-              }
-            ]
-          }
-        ]
-      })
-    });
+    // Pass 1: full extraction
+    const firstPass = await callClaudeWithPdf(
+      pdfBase64,
+      fileName,
+      AI_PROMPT,
+      `Analyze this residential construction plan PDF like a professional takeoff estimator and return only the JSON object. File name: ${fileName || "uploaded-plan.pdf"}`
+    );
 
-    const raw = await response.text();
+    let finalResult = enrichResult(firstPass);
 
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: "Anthropic API error",
-        details: raw
-      });
+    // Pass 2: targeted verification for ceiling + garage doors
+    const needsCeiling =
+      finalResult.ceiling_height_ft === null ||
+      finalResult.ceiling_height_ft === undefined ||
+      finalResult.ceiling_height_ft === 0;
+
+    const needsGarageDoors =
+      !Array.isArray(finalResult.garage_doors) ||
+      finalResult.garage_doors.length < 2;
+
+    if (needsCeiling || needsGarageDoors) {
+      const verifyResult = await callClaudeWithPdf(
+        pdfBase64,
+        fileName,
+        VERIFY_PROMPT,
+        "Second-pass verification only. Find the project-wide ceiling height from elevations/sections and count every garage door opening."
+      );
+
+      finalResult = mergeVerification(finalResult, verifyResult);
+      finalResult = enrichResult(finalResult);
     }
 
-    const parsed = JSON.parse(raw);
-    const text = (parsed.content || [])
-      .filter((c) => c.type === "text")
-      .map((c) => c.text)
-      .join("")
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
-
-    let resultJson;
-    try {
-      resultJson = JSON.parse(text);
-    } catch {
-      return res.status(500).json({
-        error: "Claude returned invalid JSON.",
-        rawText: text
-      });
-    }
-
-    const finalResult = enrichResult(resultJson);
     return res.json(finalResult);
   } catch (error) {
     console.error("Analyze error:", error);
@@ -346,5 +542,6 @@ app.post("/api/analyze", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(\`Server running on port \${PORT}\`);
+  console.log(`Server running on port ${PORT}`);
 });
+ 
