@@ -41,6 +41,8 @@ app.post("/api/analyze", async (req, res) => {
       return res.status(500).json({ error: "Missing ANTHROPIC_API_KEY on the server." });
     }
 
+    console.log("Starting PDF Analysis...");
+
     // Step 1: Pass the file to Claude for extraction
     const firstPass = await callClaudeWithPdf(
       pdfBase64,
@@ -48,6 +50,9 @@ app.post("/api/analyze", async (req, res) => {
       AI_PROMPT,
       `Analyze this residential construction plan PDF like a professional takeoff estimator and return only the JSON object. File name: ${fileName || "uploaded-plan.pdf"}`
     );
+
+    // Log Claude response for debugging
+    console.log("Claude Response:", firstPass);
 
     // Enrich the result with additional information if necessary (this could be further logic)
     let finalResult = enrichResult(firstPass);
@@ -65,6 +70,8 @@ app.post("/api/analyze", async (req, res) => {
 // Helper function to call Claude API
 async function callClaudeWithPdf(pdfBase64, fileName, prompt, instruction) {
   try {
+    console.log("Sending request to Claude API...");
+
     // Make the request to the Claude API
     const response = await axios.post(
       "https://api.anthropic.com/v1/complete", // Use the appropriate endpoint
