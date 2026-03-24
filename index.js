@@ -32,8 +32,6 @@ NON-NEGOTIABLE RULES
 3. ROOM CEILING NOTES
 - If a room label shows something like "8'-8\\" CLG", store that as a room-level field called "ceiling_note".
 - Do NOT convert room-level CLG notes into the project-wide ceiling height.
-- Example:
-  "BEDROOM #1 8'-8\\" CLG" means room ceiling note only.
 
 4. GLOBAL CEILING HEIGHT
 - Project-wide "ceiling_height_ft" must come only from general notes, sections, elevations, wall sections, or ceiling schedules.
@@ -62,18 +60,13 @@ NON-NEGOTIABLE RULES
 - If not shown, calculate or scale only the shower enclosure area.
 - Never use full bathroom floor area as shower floor sqft.
 - Never combine tub area with shower floor.
-- Add source for each flooring detail using one of:
-  "printed", "calculated_from_dimensions", "scaled_from_plan", "missing"
 
 9. SHOWER WALL TILE
 - Shower wall tile area must include only tiled wall faces inside the shower enclosure.
-- Do not include bathroom painted walls outside the shower.
-- Use tiled height if shown; otherwise use plan notes only if explicitly stated.
 
 10. TUB SURROUND TILE
 - For baths with tubs, wall tile area must be measured above the tub rim only.
 - Deduct tub height from full wall height.
-- Do NOT use full floor-to-ceiling wall area unless explicitly called out on plans.
 - Return tub surround tile separately in flooring.details with type "Tub Tile".
 
 11. BATHROOM FLOORING RULES
@@ -81,17 +74,12 @@ NON-NEGOTIABLE RULES
 - Bath floor sqft = actual bathroom floor areas.
 - Shower floor sqft = shower pans only.
 - Exterior tile sqft = lanai / porch / entry exterior finished areas only.
-- Keep each bathroom area separate in flooring.details.
 
 12. PLUMBING
 - Extract plumbing fixtures from plan symbols and notes.
-- Count each fixture carefully.
-- Do not duplicate.
 
 13. ELECTRICAL
 - Extract electrical devices from electrical plans and notes.
-- Count each device carefully.
-- Do not duplicate.
 
 14. FOUNDATION
 - Foundation must be returned only in a clean stage-by-stage format.
@@ -101,9 +89,6 @@ NON-NEGOTIABLE RULES
   Stage 3 - Slab Pour
   Stage 4 - Block Walls
   Stage 5 - Cell Fills
-- Each stage item must contain:
-  activity, qty, unit, ref, note
-- Do not collapse into messy summaries.
 
 15. PROFESSIONAL TAKEOFF BEHAVIOR
 - Prefer printed plan values over assumptions.
@@ -121,115 +106,157 @@ Use this exact schema:
   "address":"string",
   "plan_name":"string",
   "ceiling_height_ft": null,
-  "area_tabulation":{
-    "living":0,
-    "garage":0,
-    "lanai":0,
-    "total_under_roof":0
-  },
-  "rooms":[
-    {
-      "name":"string",
-      "length":"string",
-      "width":"string",
-      "sqft_interior":0,
-      "sqft_source":"printed",
-      "category":"living",
-      "ceiling_note":"string",
-      "ref":"string"
-    }
-  ],
-  "windows_doors":[
-    {
-      "item":"string",
-      "size":"string",
-      "location":"string",
-      "qty":1,
-      "type":"window",
-      "ref":"string"
-    }
-  ],
-  "garage_doors":[
-    {
-      "item":"string",
-      "size":"string",
-      "location":"string",
-      "qty":1,
-      "ref":"string"
-    }
-  ],
-  "plumbing":[
-    {
-      "item":"string",
-      "location":"string",
-      "qty":1,
-      "ref":"string"
-    }
-  ],
-  "electrical":[
-    {
-      "item":"string",
-      "location":"string",
-      "qty":1,
-      "ref":"string"
-    }
-  ],
-  "flooring":{
-    "interior_floor_sf":0,
-    "bath_floor_sf":0,
-    "bath_wall_tile_sf":0,
-    "shower_floor_sf":0,
-    "exterior_tile_sf":0,
-    "details":[
-      {
-        "area":"string",
-        "type":"string",
-        "sqft":0,
-        "source":"printed",
-        "ref":"string"
-      }
-    ]
-  },
-  "bathrooms":[
-    {
-      "name":"string",
-      "bath_type":"walk_in_shower",
-      "floor_sqft":0,
-      "floor_sqft_source":"printed",
-      "shower_floor_sqft":0,
-      "shower_floor_source":"printed",
-      "shower_wall_tile_sqft":0,
-      "shower_wall_tile_source":"printed",
-      "tub_tile_sqft":0,
-      "tub_tile_source":"printed",
-      "ref":"string"
-    }
-  ],
-  "drywall":{
-    "notes":"string",
-    "ref":"string"
-  },
-  "foundation":{
-    "perimeter_lf":0,
-    "slab_sf":0,
-    "wall_sf":0,
-    "stages":[
-      {
-        "stage":"Stage 1 - Footer",
-        "items":[
-          {
-            "activity":"string",
-            "qty":0,
-            "unit":"string",
-            "ref":"string",
-            "note":"string"
-          }
-        ]
-      }
-    ]
-  }
+  "area_tabulation":{"living":0,"garage":0,"lanai":0,"total_under_roof":0},
+  "rooms":[{"name":"string","length":"string","width":"string","sqft_interior":0,"sqft_source":"printed","category":"living","ceiling_note":"string","ref":"string"}],
+  "windows_doors":[{"item":"string","size":"string","location":"string","qty":1,"type":"window","ref":"string"}],
+  "garage_doors":[{"item":"string","size":"string","location":"string","qty":1,"ref":"string"}],
+  "plumbing":[{"item":"string","location":"string","qty":1,"ref":"string"}],
+  "electrical":[{"item":"string","location":"string","qty":1,"ref":"string"}],
+  "flooring":{"interior_floor_sf":0,"bath_floor_sf":0,"bath_wall_tile_sf":0,"shower_floor_sf":0,"exterior_tile_sf":0,"details":[{"area":"string","type":"string","sqft":0,"source":"printed","ref":"string"}]},
+  "bathrooms":[{"name":"string","bath_type":"walk_in_shower","floor_sqft":0,"floor_sqft_source":"printed","shower_floor_sqft":0,"shower_floor_source":"printed","shower_wall_tile_sqft":0,"shower_wall_tile_source":"printed","tub_tile_sqft":0,"tub_tile_source":"printed","ref":"string"}],
+  "drywall":{"notes":"string","ref":"string"},
+  "foundation":{"perimeter_lf":0,"slab_sf":0,"wall_sf":0,"stages":[{"stage":"Stage 1 - Footer","items":[{"activity":"string","qty":0,"unit":"string","ref":"string","note":"string"}]}]}
 }
 `;
+
+function dimToFeet(dim) {
+  if (!dim || typeof dim !== "string" || dim === "--") return null;
+  const cleaned = dim.trim();
+  const match = cleaned.match(/(\d+)\s*'\s*-?\s*(\d+)?\s*"?/);
+  if (!match) return null;
+  const feet = Number(match[1] || 0);
+  const inches = Number(match[2] || 0);
+  return feet + inches / 12;
+}
+
+function calcSqftFromDims(length, width) {
+  const l = dimToFeet(length);
+  const w = dimToFeet(width);
+  if (l == null || w == null) return null;
+  return Math.round(l * w);
+}
+
+function normalizeRooms(rooms) {
+  if (!Array.isArray(rooms)) return [];
+  const seen = new Set();
+
+  return rooms
+    .map((r) => {
+      const room = { ...r };
+      const key = `${room.name || ""}|${room.length || ""}|${room.width || ""}|${room.ref || ""}`.toLowerCase();
+
+      if (!room.sqft_interior || Number(room.sqft_interior) === 0) {
+        const calc = calcSqftFromDims(room.length, room.width);
+        if (calc) {
+          room.sqft_interior = calc;
+          room.sqft_source = "calculated_from_dimensions";
+        } else {
+          room.sqft_source = room.sqft_source || "missing";
+        }
+      }
+
+      return { room, key };
+    })
+    .filter(({ key }) => {
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map(({ room }) => room);
+}
+
+function normalizeGarageDoors(garageDoors, windowsDoors) {
+  const gd = Array.isArray(garageDoors) ? [...garageDoors] : [];
+  const wd = Array.isArray(windowsDoors) ? windowsDoors : [];
+
+  const moved = wd.filter((x) => {
+    const text = `${x.item || ""} ${x.type || ""} ${x.location || ""}`.toLowerCase();
+    return text.includes("garage");
+  });
+
+  moved.forEach((m) => {
+    gd.push({
+      item: m.item || "Garage Door",
+      size: m.size || "--",
+      location: m.location || "Garage",
+      qty: Number(m.qty) || 1,
+      ref: m.ref || "--"
+    });
+  });
+
+  const filtered = wd.filter((x) => {
+    const text = `${x.item || ""} ${x.type || ""} ${x.location || ""}`.toLowerCase();
+    return !text.includes("garage");
+  });
+
+  const mergedMap = new Map();
+  gd.forEach((g) => {
+    const key = `${g.item || ""}|${g.size || ""}|${g.location || ""}|${g.ref || ""}`.toLowerCase();
+    if (!mergedMap.has(key)) {
+      mergedMap.set(key, { ...g, qty: Number(g.qty) || 1 });
+    } else {
+      const ex = mergedMap.get(key);
+      ex.qty += Number(g.qty) || 1;
+    }
+  });
+
+  return {
+    garageDoors: Array.from(mergedMap.values()),
+    windowsDoors: filtered
+  };
+}
+
+function normalizeBathrooms(bathrooms) {
+  if (!Array.isArray(bathrooms)) return [];
+  return bathrooms.map((b) => {
+    const x = { ...b };
+
+    if ((!x.floor_sqft || x.floor_sqft === 0) && x.floor_sqft_source !== "printed") {
+      x.floor_sqft_source = x.floor_sqft_source || "missing";
+    }
+
+    if ((!x.shower_floor_sqft || x.shower_floor_sqft === 0) && x.shower_floor_source !== "printed") {
+      x.shower_floor_source = x.shower_floor_source || "missing";
+    }
+
+    if ((!x.shower_wall_tile_sqft || x.shower_wall_tile_sqft === 0) && x.shower_wall_tile_source !== "printed") {
+      x.shower_wall_tile_source = x.shower_wall_tile_source || "missing";
+    }
+
+    if ((!x.tub_tile_sqft || x.tub_tile_sqft === 0) && x.tub_tile_source !== "printed") {
+      x.tub_tile_source = x.tub_tile_source || "missing";
+    }
+
+    return x;
+  });
+}
+
+function normalizeFoundation(foundation) {
+  const f = foundation && typeof foundation === "object" ? { ...foundation } : {};
+  if (!Array.isArray(f.stages)) f.stages = [];
+
+  f.stages = f.stages.map((stage, idx) => ({
+    stage: stage.stage || `Stage ${idx + 1}`,
+    items: Array.isArray(stage.items) ? stage.items : []
+  }));
+
+  return f;
+}
+
+function enrichResult(result) {
+  const out = { ...result };
+
+  out.rooms = normalizeRooms(out.rooms);
+
+  const fixedOpenings = normalizeGarageDoors(out.garage_doors, out.windows_doors);
+  out.garage_doors = fixedOpenings.garageDoors;
+  out.windows_doors = fixedOpenings.windowsDoors;
+
+  out.bathrooms = normalizeBathrooms(out.bathrooms);
+  out.foundation = normalizeFoundation(out.foundation);
+
+  return out;
+}
 
 app.get("/", (req, res) => {
   res.send("Hivesta backend is running");
@@ -308,7 +335,8 @@ app.post("/api/analyze", async (req, res) => {
       });
     }
 
-    return res.json(resultJson);
+    const finalResult = enrichResult(resultJson);
+    return res.json(finalResult);
   } catch (error) {
     console.error("Analyze error:", error);
     return res.status(500).json({
@@ -318,5 +346,5 @@ app.post("/api/analyze", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(\`Server running on port \${PORT}\`);
 });
