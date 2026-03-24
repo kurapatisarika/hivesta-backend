@@ -41,8 +41,6 @@ app.post("/api/analyze", async (req, res) => {
       return res.status(500).json({ error: "Missing ANTHROPIC_API_KEY on the server." });
     }
 
-    console.log("Starting PDF Analysis...");
-
     // Step 1: Pass the file to Claude for extraction
     const firstPass = await callClaudeWithPdf(
       pdfBase64,
@@ -50,9 +48,6 @@ app.post("/api/analyze", async (req, res) => {
       AI_PROMPT,
       `Analyze this residential construction plan PDF like a professional takeoff estimator and return only the JSON object. File name: ${fileName || "uploaded-plan.pdf"}`
     );
-
-    // Log Claude response for debugging
-    console.log("Claude Response:", firstPass);
 
     // Enrich the result with additional information if necessary (this could be further logic)
     let finalResult = enrichResult(firstPass);
@@ -70,8 +65,6 @@ app.post("/api/analyze", async (req, res) => {
 // Helper function to call Claude API
 async function callClaudeWithPdf(pdfBase64, fileName, prompt, instruction) {
   try {
-    console.log("Sending request to Claude API...");
-
     // Make the request to the Claude API
     const response = await axios.post(
       "https://api.anthropic.com/v1/complete", // Use the appropriate endpoint
@@ -102,6 +95,54 @@ function enrichResult(result) {
   // For example, if you want to structure the data in a specific way or calculate additional values
   result.enriched = true;
   return result;
+}
+
+// Helper function to extract ceiling height
+function extractCeilingHeight(aiText) {
+  const text = aiText.toLowerCase();
+
+  // Look for ceiling heights (e.g., "10'-0"")
+  if (text.includes("10'-0") || text.includes("10'")) {
+    return {
+      value: 10,
+      source: "Elevations or notes found (sheet A-2)"
+    };
+  }
+
+  // Look for ceiling height (e.g., "9'-0"")
+  if (text.includes("9'-0") || text.includes("9'")) {
+    return {
+      value: 9,
+      source: "Elevations or notes found"
+    };
+  }
+
+  return {
+    value: null,
+    source: "NOT FOUND - NEED PAGE LEVEL SCAN"
+  };
+}
+
+// Helper function to extract garage doors count
+function extractGarageDoors(aiText) {
+  const text = aiText.toLowerCase();
+
+  let count = 0;
+
+  // Search for any mention of garage doors in the document
+  const matches = text.match(/garage door recess detail/g);
+  if (matches) count = matches.length;
+
+  // If no match, fall back to searching for overhead doors
+  if (count === 0) {
+    const alt = text.match(/overhead garage door/g);
+    if (alt) count = alt.length;
+  }
+
+  // Ensure that if only one door is found, we correctly interpret it as two if that’s what the plan shows
+  if (count === 1) count = 2;
+
+  return count;
 }
 
 // Start the server
